@@ -1,0 +1,128 @@
+npm install express neo4j-driver cors
+
+const express = require('express');
+const neo4j = require('neo4j-driver');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Neo4j connection setup
+const driver = neo4j.driver(
+    'bolt://localhost:7687', // Change this to your Neo4j instance address
+    neo4j.auth.basic('neo4j', 'password') // Change these credentials as needed
+);
+const session = driver.session();
+
+app.get('/nodes', async (req, res) => {
+    try {
+        const result = await session.run('MATCH (n) RETURN n LIMIT 100');
+        const nodes = result.records.map(record => ({
+            data: record.get('n').properties
+        }));
+        res.json(nodes);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error querying Neo4j');
+    }
+});
+
+app.get('/relationships', async (req, res) => {
+    try {
+        const result = await session.run('MATCH ()-[r]->() RETURN r LIMIT 100');
+        const relationships = result.records.map(record => ({
+            data: record.get('r').properties
+        }));
+        res.json(relationships);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error querying Neo4j');
+    }
+});
+
+const port = 3000;
+app.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}`);
+});
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cytoscape.js with Neo4j</title>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape/dist/cytoscape.min.js"></script>
+    <style>
+        #cy {
+            width: 100%;
+            height: 600px;
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <div id="cy"></div>
+    <script>
+        async function fetchData() {
+            const nodesResponse = await fetch('http://localhost:3000/nodes');
+            const nodes = await nodesResponse.json();
+
+            const relationshipsResponse = await fetch('http://localhost:3000/relationships');
+            const relationships = await relationshipsResponse.json();
+
+            return { nodes, relationships };
+        }
+
+        function initializeCytoscape(data) {
+            cytoscape({
+                container: document.getElementById('cy'),
+                elements: {
+                    nodes: data.nodes.map(node => ({
+                        data: {
+                            id: node.data.id,
+                            label: node.data.label || node.data.id
+                        }
+                    })),
+                    edges: data.relationships.map(rel => ({
+                        data: {
+                            id: rel.data.id,
+                            source: rel.data.source,
+                            target: rel.data.target,
+                            label: rel.data.type
+                        }
+                    }))
+                },
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'background-color': '#666',
+                            'label': 'data(label)'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#ccc',
+                            'target-arrow-color': '#ccc',
+                            'target-arrow-shape': 'triangle'
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'grid'
+                }
+            });
+        }
+
+        fetchData().then(data => initializeCytoscape(data)).catch(error => console.error(error));
+    </script>
+</body>
+</html>
+
+node server.js
+
+
+
