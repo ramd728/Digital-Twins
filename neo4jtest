@@ -155,4 +155,108 @@ app.listen(port, () => {
 node server.js
 
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cytoscape with Neo4j</title>
+    <!-- Include Cytoscape.js -->
+    <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+    <!-- Include Neo4j JavaScript driver -->
+    <script src="https://cdn.neo4j.com/javascript-driver/5.0.0/neo4j-web.min.js"></script>
+</head>
+<body>
+    <div id="cy" style="width: 100%; height: 600px;"></div>
+    <script>
+        const driver = neo4j.driver(
+            'bolt://localhost:7687', // Replace with your Neo4j connection details
+            neo4j.auth.basic('neo4j', 'your_password') // Replace with your Neo4j username and password
+        );
+
+        async function fetchFilteredData() {
+            const query = `
+                MATCH (n1:l1)-[r]-(n2:l2)
+                RETURN n1, r, n2
+            `;
+
+            const session = driver.session();
+
+            try {
+                const result = await session.run(query);
+                const elements = [];
+
+                result.records.forEach(record => {
+                    const n1 = record.get('n1');
+                    const n2 = record.get('n2');
+                    const r = record.get('r');
+
+                    // Add nodes to elements
+                    elements.push({
+                        data: {
+                            id: n1.properties.elementId, 
+                            label: n1.labels[0],
+                            ...n1.properties
+                        }
+                    });
+
+                    elements.push({
+                        data: {
+                            id: n2.properties.elementId,
+                            label: n2.labels[0],
+                            ...n2.properties
+                        }
+                    });
+
+                    // Add relationship to elements
+                    elements.push({
+                        data: {
+                            id: r.properties.elementId, 
+                            source: n1.properties.elementId, 
+                            target: n2.properties.elementId,
+                            label: r.type, 
+                            ...r.properties
+                        }
+                    });
+                });
+
+                return elements;
+            } finally {
+                await session.close();
+            }
+        }
+
+        fetchFilteredData().then(elements => {
+            const cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: elements,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'label': 'data(label)',
+                            'background-color': '#66ccff',
+                            'font-size': '10px'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#ccc',
+                            'target-arrow-color': '#ccc',
+                            'target-arrow-shape': 'triangle'
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'cose',
+                    fit: true,
+                    padding: 10
+                }
+            });
+        });
+    </script>
+</body>
+</html>
 
