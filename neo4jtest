@@ -17,10 +17,19 @@ const session = driver.session();
 
 app.get('/nodes', async (req, res) => {
     try {
-        const result = await session.run('MATCH (n) RETURN n LIMIT 100');
-        const nodes = result.records.map(record => ({
-            data: record.get('n').properties
-        }));
+        const result = await session.run('MATCH (n) RETURN id(n) as id, labels(n) as labels, n LIMIT 100');
+        const nodes = result.records.map(record => {
+            const id = record.get('id').toString(); // Convert ID to string
+            const labels = record.get('labels');
+            const properties = record.get('n').properties;
+            return {
+                data: {
+                    id,
+                    label: labels[0] || id, // Use first label or ID as label
+                    ...properties
+                }
+            };
+        });
         res.json(nodes);
     } catch (error) {
         console.error(error);
@@ -30,10 +39,23 @@ app.get('/nodes', async (req, res) => {
 
 app.get('/relationships', async (req, res) => {
     try {
-        const result = await session.run('MATCH ()-[r]->() RETURN r LIMIT 100');
-        const relationships = result.records.map(record => ({
-            data: record.get('r').properties
-        }));
+        const result = await session.run('MATCH ()-[r]->() RETURN id(r) as id, startNode(r) as source, endNode(r) as target, type(r) as type, r LIMIT 100');
+        const relationships = result.records.map(record => {
+            const id = record.get('id').toString(); // Convert ID to string
+            const source = record.get('source').toString();
+            const target = record.get('target').toString();
+            const type = record.get('type');
+            const properties = record.get('r').properties;
+            return {
+                data: {
+                    id,
+                    source,
+                    target,
+                    label: type,
+                    ...properties
+                }
+            };
+        });
         res.json(relationships);
     } catch (error) {
         console.error(error);
