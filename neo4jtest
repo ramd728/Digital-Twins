@@ -39,7 +39,9 @@ app.get('/nodes', async (req, res) => {
 
 app.get('/relationships', async (req, res) => {
     try {
-        const result = await session.run('MATCH ()-[r]->() RETURN id(r) as id, startNode(r) as source, endNode(r) as target, type(r) as type, r LIMIT 100');
+        const result = await session.run(
+            'MATCH (a)-[r]->(b) RETURN id(r) as id, id(a) as source, id(b) as target, type(r) as type, r LIMIT 100'
+        );
         const relationships = result.records.map(record => {
             const id = record.get('id').toString(); // Convert ID to string
             const source = record.get('source').toString();
@@ -62,6 +64,12 @@ app.get('/relationships', async (req, res) => {
         res.status(500).send('Error querying Neo4j');
     }
 });
+
+const port = 3000;
+app.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}`);
+});
+
 
 const port = 3000;
 app.listen(port, () => {
